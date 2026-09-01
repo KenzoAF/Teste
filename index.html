@@ -41,10 +41,17 @@
     .swatch-purple { background: #800080; box-shadow: 0 0 10px rgba(128, 0, 128, 0.8); }
     .legend-traffic { font-weight: 600; color: #f1f5f9; }
     .legend-energy { font-size: 11px; color: #94a3b8; font-family: 'Orbitron', monospace; }
-    .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+    .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
     .metric-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); padding: 10px 12px; border-radius: 10px; }
     .metric-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
     .metric-value { font-family: 'Orbitron', monospace; font-size: 16px; font-weight: 700; color: #38bdf8; }
+    
+    /* Slider de Quantidade de Pessoas */
+    .slider-container { margin-bottom: 14px; background: rgba(0, 0, 0, 0.3); padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05); }
+    .slider-header { display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-bottom: 6px; }
+    .slider-header span:last-child { font-family: 'Orbitron', monospace; color: #38bdf8; font-weight: 700; }
+    input[type=range] { width: 100%; accent-color: #38bdf8; cursor: pointer; }
+
     .controls-row { display: flex; gap: 8px; }
     .btn { flex: 1; background: #1e293b; color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.1); padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
     .btn:hover { background: #334155; color: #ffffff; }
@@ -72,10 +79,11 @@
 
   <div id="canvas-container"></div>
 
+  <!-- Painel Esquerdo -->
   <div class="hud-panel">
     <div class="badge"><span class="badge-dot"></span> FECART • PIEZOELÉTRICA</div>
-    <h1>Piso Gerador de Energia</h1>
-    <p class="subtitle">Conversão mecânica-elétrica via efeito piezoelétrico acionado pelo tráfego de pessoas.</p>
+    <h1>Simulação de Calçada</h1>
+    <p class="subtitle">Conversão mecânica-elétrica via efeito piezoelétrico acionado pelo fluxo linear de pedestres.</p>
 
     <div class="section-title">Escala Térmica de Tráfego</div>
     <div class="legend-container">
@@ -84,6 +92,15 @@
       <div class="legend-item"><div class="legend-color-box"><div class="color-swatch swatch-yellow"></div><span class="legend-traffic">Tráfego Médio</span></div><span class="legend-energy">Amarelo</span></div>
       <div class="legend-item"><div class="legend-color-box"><div class="color-swatch swatch-red"></div><span class="legend-traffic">Tráfego Alto</span></div><span class="legend-energy">Vermelho</span></div>
       <div class="legend-item"><div class="legend-color-box"><div class="color-swatch swatch-purple"></div><span class="legend-traffic">Tráfego Intenso</span></div><span class="legend-energy">Roxo</span></div>
+    </div>
+
+    <!-- Controle de Quantidade de Pessoas -->
+    <div class="slider-container">
+      <div class="slider-header">
+        <span>Quantidade de Pedestres</span>
+        <span id="label-agents-count">8</span>
+      </div>
+      <input type="range" id="range-agents" min="1" max="25" value="8">
     </div>
 
     <div class="section-title">Telemetria em Tempo Real</div>
@@ -100,6 +117,7 @@
     </div>
   </div>
 
+  <!-- Painel Direito - Gráfico + Calculadora f(x) em Segundos -->
   <div class="hud-panel-right">
     <div class="section-title">Função f(x) - Crescimento Contínuo</div>
     <canvas id="fxChart" width="300" height="150"></canvas>
@@ -130,9 +148,12 @@
   </div>
 
   <script>
-    const FLOOR_SIZE = 40;
-    const HALF_FLOOR = FLOOR_SIZE / 2;
-    const NUM_AGENTS = 8;
+    // Dimensões ajustadas para formato de Calçada (Estreita e Comprida)
+    const FLOOR_WIDTH = 14;
+    const FLOOR_LENGTH = 45;
+    const HALF_WIDTH = FLOOR_WIDTH / 2;
+    const HALF_LENGTH = FLOOR_LENGTH / 2;
+    
     const HEATMAP_RES = 512;
     const JOULES_PER_STEP = 4.8;
     
@@ -141,6 +162,7 @@
     let totalJoules = 0;
     let totalSteps = 0;
     let instantaneousWatts = 0;
+    let targetAgentCount = 8;
 
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
@@ -148,7 +170,7 @@
     scene.fog = new THREE.FogExp2(0x08090d, 0.012);
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 36, 42);
+    camera.position.set(0, 32, 42);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -190,15 +212,17 @@
     function initFloorCanvas() {
       bgCtx.fillStyle = '#0c1018';
       bgCtx.fillRect(0, 0, HEATMAP_RES, HEATMAP_RES);
-      const numSquares = 16;
-      const squareSize = HEATMAP_RES / numSquares;
-      for (let r = 0; r < numSquares; r++) {
-        for (let c = 0; c < numSquares; c++) {
+      const numSquaresX = 6;
+      const numSquaresZ = 18;
+      const squareSizeX = HEATMAP_RES / numSquaresX;
+      const squareSizeZ = HEATMAP_RES / numSquaresZ;
+      for (let r = 0; r < numSquaresZ; r++) {
+        for (let c = 0; c < numSquaresX; c++) {
           bgCtx.fillStyle = (r + c) % 2 === 0 ? '#101622' : '#0a0d14';
-          bgCtx.fillRect(c * squareSize, r * squareSize, squareSize, squareSize);
+          bgCtx.fillRect(c * squareSizeX, r * squareSizeZ, squareSizeX, squareSizeZ);
           bgCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
           bgCtx.lineWidth = 1;
-          bgCtx.strokeRect(c * squareSize, r * squareSize, squareSize, squareSize);
+          bgCtx.strokeRect(c * squareSizeX, r * squareSizeZ, squareSizeX, squareSizeZ);
         }
       }
       outputCtx.drawImage(bgCanvas, 0, 0);
@@ -208,14 +232,15 @@
     const floorTexture = new THREE.CanvasTexture(outputCanvas);
     floorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    const floorGeo = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE, 64, 64);
+    // Geometria da Calçada (Retangular)
+    const floorGeo = new THREE.PlaneGeometry(FLOOR_WIDTH, FLOOR_LENGTH, 32, 64);
     const floorMat = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.4, metalness: 0.1 });
     const floorMesh = new THREE.Mesh(floorGeo, floorMat);
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.receiveShadow = true;
     scene.add(floorMesh);
 
-    const borderGeo = new THREE.BoxGeometry(FLOOR_SIZE + 1.2, 0.6, FLOOR_SIZE + 1.2);
+    const borderGeo = new THREE.BoxGeometry(FLOOR_WIDTH + 1.2, 0.6, FLOOR_LENGTH + 1.2);
     const borderMat = new THREE.MeshStandardMaterial({ color: 0x18202e, roughness: 0.7, metalness: 0.5 });
     const borderMesh = new THREE.Mesh(borderGeo, borderMat);
     borderMesh.position.y = -0.31;
@@ -297,21 +322,31 @@
     }
 
     const pedestrians = [];
-    for (let i = 0; i < NUM_AGENTS; i++) {
+    const maxPossibleAgents = 25;
+
+    for (let i = 0; i < maxPossibleAgents; i++) {
       const palette = humanPalettes[i % humanPalettes.length];
       const human = createDetailedHumanModel(palette);
-      const x = (Math.random() - 0.5) * (FLOOR_SIZE - 10);
-      const z = (Math.random() - 0.5) * (FLOOR_SIZE - 10);
+      
+      // Posicionamento inicial distribuído ao longo da calçada
+      const x = (Math.random() - 0.5) * (FLOOR_WIDTH - 2);
+      const z = (Math.random() - 0.5) * (FLOOR_LENGTH - 4);
       human.root.position.set(x, 0, z);
 
-      const speed = 0.07 + Math.random() * 0.04;
-      const angle = Math.random() * Math.PI * 2;
-      const vx = Math.sin(angle) * speed;
-      const vz = Math.cos(angle) * speed;
+      // Metade anda para frente (Z positivo), metade para trás (Z negativo) -> Fluxo linear de calçada
+      const direction = i % 2 === 0 ? 1 : -1;
+      const speed = 0.06 + Math.random() * 0.03;
+      const vx = 0; // Movimento quase estritamente linear no eixo Z
+      const vz = direction * speed;
 
       scene.add(human.root);
       const agent = { id: i, human: human, vx: vx, vz: vz, speed: speed, walkCycle: Math.random() * Math.PI * 2, lastStepX: x, lastStepZ: z };
       updateHumanRotation(agent);
+      
+      // Controla visibilidade inicial baseada no valor padrão (8)
+      if (i >= targetAgentCount) {
+        human.root.visible = false;
+      }
       pedestrians.push(agent);
     }
 
@@ -336,10 +371,10 @@
     }
 
     function addHeatAtWorldPos(wx, wz) {
-      const cx = Math.floor(((wx + HALF_FLOOR) / FLOOR_SIZE) * HEATMAP_RES);
-      const cy = Math.floor(((wz + HALF_FLOOR) / FLOOR_SIZE) * HEATMAP_RES);
+      const cx = Math.floor(((wx + HALF_WIDTH) / FLOOR_WIDTH) * HEATMAP_RES);
+      const cy = Math.floor(((wz + HALF_LENGTH) / FLOOR_LENGTH) * HEATMAP_RES);
       
-      const radius = 14; 
+      const radius = 12; 
       const minX = Math.max(0, cx - radius), maxX = Math.min(HEATMAP_RES - 1, cx + radius);
       const minY = Math.max(0, cy - radius), maxY = Math.min(HEATMAP_RES - 1, cy + radius);
 
@@ -373,12 +408,10 @@
       document.getElementById('val-coverage').innerText = `${((activePixels / heatMapData.length) * 100).toFixed(1)}%`;
     }
 
-    // Função matemática f(x) oficial (onde x representa Segundos)
     function calcFX(x) {
       return (x * 4.8 * 0.5) + Math.pow(1.08, x);
     }
 
-    // Configuração do Gráfico f(x)
     const fxCtx = document.getElementById('fxChart').getContext('2d');
     const xPoints = [];
     const fxValues = [];
@@ -417,7 +450,9 @@
 
     function updateAgents() {
       let stepOccurred = false;
-      pedestrians.forEach((agent) => {
+      pedestrians.forEach((agent, idx) => {
+        if (idx >= targetAgentCount) return; // Ignora agentes desativados pelo slider
+
         if (!isPaused) {
           agent.human.root.position.x += agent.vx;
           agent.human.root.position.z += agent.vz;
@@ -434,19 +469,14 @@
           agent.human.leftArm.rotation.x = -Math.sin(agent.walkCycle) * 0.5;
           agent.human.rightArm.rotation.x = Math.sin(agent.walkCycle) * 0.5;
 
-          if (Math.abs(currX) > HALF_FLOOR - 1.8) {
-            agent.vx *= -1;
-            agent.vz += (Math.random() - 0.5) * 0.02;
-          }
-          if (Math.abs(currZ) > HALF_FLOOR - 1.8) {
+          // Comportamento de Calçada: Chegando nas extremidades da calçada, inverte o sentido (vai e volta)
+          if (Math.abs(currZ) > HALF_LENGTH - 2) {
             agent.vz *= -1;
-            agent.vx += (Math.random() - 0.5) * 0.02;
+            updateHumanRotation(agent);
           }
-
-          const currentSpeed = Math.hypot(agent.vx, agent.vz);
-          if (currentSpeed > 0) {
-            agent.vx = (agent.vx / currentSpeed) * agent.speed;
-            agent.vz = (agent.vz / currentSpeed) * agent.speed;
+          // Mantém contido dentro da largura da calçada
+          if (Math.abs(currX) > HALF_WIDTH - 1) {
+            agent.human.root.position.x = Math.sign(currX) * (HALF_WIDTH - 1);
           }
 
           addHeatAtWorldPos(currX, currZ);
@@ -461,12 +491,11 @@
         }
       });
 
-      instantaneousWatts = stepOccurred ? (NUM_AGENTS * 6.5) + (Math.random() * 8.0) : Math.max(0, instantaneousWatts * 0.94);
+      instantaneousWatts = stepOccurred ? (targetAgentCount * 3.5) + (Math.random() * 5.0) : Math.max(0, instantaneousWatts * 0.94);
       document.getElementById('val-joules').innerText = `${totalJoules.toFixed(1)} J`;
       document.getElementById('val-watts').innerText = `${instantaneousWatts.toFixed(1)} W`;
       document.getElementById('val-steps').innerText = totalSteps.toLocaleString('pt-BR');
 
-      // Atualiza o gráfico continuamente sem quedas bruscas (caso não esteja pausado no gráfico)
       if (!isPaused && !isChartPaused && stepOccurred) {
         timeStep++;
         fxChart.data.labels.push(timeStep);
@@ -481,7 +510,23 @@
       }
     }
 
-    // Lógica da Calculadora f(x) interativa em segundos
+    // Controle dinâmico da quantidade de pessoas via Slider
+    const rangeAgents = document.getElementById('range-agents');
+    const labelAgentsCount = document.getElementById('label-agents-count');
+
+    rangeAgents.addEventListener('input', () => {
+      targetAgentCount = parseInt(rangeAgents.value);
+      labelAgentsCount.innerText = targetAgentCount;
+
+      pedestrians.forEach((agent, idx) => {
+        if (idx < targetAgentCount) {
+          agent.human.root.visible = true;
+        } else {
+          agent.human.root.visible = false;
+        }
+      });
+    });
+
     const inputTime = document.getElementById('input-time');
     const resEnergy = document.getElementById('res-energy');
     const inputEnergy = document.getElementById('input-energy');
@@ -517,7 +562,6 @@
 
     inputTime.dispatchEvent(new Event('input'));
 
-    // Botões específicos de controle do gráfico
     const btnResetChart = document.getElementById('btn-reset-chart');
     btnResetChart.addEventListener('click', () => {
       timeStep = 10;
