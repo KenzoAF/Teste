@@ -331,13 +331,14 @@
       human.root.position.set(x, 0, z);
 
       const direction = i % 2 === 0 ? 1 : -1;
-      const speed = 0.06 + Math.random() * 0.03;
+      const speed = 0.05 + Math.random() * 0.025;
       
       scene.add(human.root);
       const agent = { 
         id: i, 
         human: human, 
-        targetX: x, // Faixa alvo original para onde ele quer voltar após desviar
+        targetX: x, 
+        currentX: x,
         vx: 0, 
         vz: direction * speed, 
         speed: speed, 
@@ -458,7 +459,7 @@
         if (idx >= targetAgentCount) return;
 
         if (!isPaused) {
-          // Lógica de desvio entre os bonecos (Evita sobreposição mantendo a direção original)
+          // Desvio antecipado e suave baseado em raio de visão ampliado
           let avoidX = 0;
           pedestrians.forEach((other, otherIdx) => {
             if (idx !== otherIdx && otherIdx < targetAgentCount) {
@@ -466,22 +467,19 @@
               const dz = agent.human.root.position.z - other.human.root.position.z;
               const dist = Math.hypot(dx, dz);
               
-              // Se estiverem muito próximos, aplica força de afastamento horizontal (desvio)
-              if (dist < 1.8 && dist > 0.001) {
-                avoidX += (dx / dist) * (1.8 - dist) * 0.15;
+              // Raio maior para desviar bem antes e de forma bem suave
+              if (dist < 3.2 && dist > 0.001) {
+                avoidX += (dx / dist) * (3.2 - dist) * 0.035;
               }
             }
           });
 
-          // Força de atração leve para retornar à sua faixa/direção original após desviar
-          const returnForce = (agent.targetX - agent.human.root.position.x) * 0.02;
-
-          // Pequena oscilação orgânica no caminho
-          const organicWobble = Math.sin(agent.walkCycle * 0.5) * 0.005;
+          // Puxada suave de volta para a linha/direção alvo original
+          const returnForce = (agent.targetX - agent.human.root.position.x) * 0.01;
+          const organicWobble = Math.sin(agent.walkCycle * 0.4) * 0.003;
 
           agent.vx = avoidX + returnForce + organicWobble;
 
-          // Atualiza posições
           agent.human.root.position.x += agent.vx;
           agent.human.root.position.z += agent.vz;
 
@@ -497,7 +495,7 @@
           agent.human.leftArm.rotation.x = -Math.sin(agent.walkCycle) * 0.5;
           agent.human.rightArm.rotation.x = Math.sin(agent.walkCycle) * 0.5;
 
-          // Quando chega no fim da calçada, inverte o sentido e ganha um novo alvo horizontal
+          // Ao atingir as pontas da calçada, inverte direção com segurança
           if (Math.abs(currZ) > HALF_LENGTH - 2) {
             agent.vz *= -1;
             agent.targetX = (Math.random() - 0.5) * (FLOOR_WIDTH - 2);
