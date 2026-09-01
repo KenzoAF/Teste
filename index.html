@@ -148,7 +148,6 @@
   </div>
 
   <script>
-    // Dimensões ajustadas para formato de Calçada (Estreita e Comprida)
     const FLOOR_WIDTH = 14;
     const FLOOR_LENGTH = 45;
     const HALF_WIDTH = FLOOR_WIDTH / 2;
@@ -232,7 +231,6 @@
     const floorTexture = new THREE.CanvasTexture(outputCanvas);
     floorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    // Geometria da Calçada (Retangular)
     const floorGeo = new THREE.PlaneGeometry(FLOOR_WIDTH, FLOOR_LENGTH, 32, 64);
     const floorMat = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.4, metalness: 0.1 });
     const floorMesh = new THREE.Mesh(floorGeo, floorMat);
@@ -328,22 +326,19 @@
       const palette = humanPalettes[i % humanPalettes.length];
       const human = createDetailedHumanModel(palette);
       
-      // Posicionamento inicial distribuído ao longo da calçada
       const x = (Math.random() - 0.5) * (FLOOR_WIDTH - 2);
       const z = (Math.random() - 0.5) * (FLOOR_LENGTH - 4);
       human.root.position.set(x, 0, z);
 
-      // Metade anda para frente (Z positivo), metade para trás (Z negativo) -> Fluxo linear de calçada
       const direction = i % 2 === 0 ? 1 : -1;
       const speed = 0.06 + Math.random() * 0.03;
-      const vx = 0; // Movimento quase estritamente linear no eixo Z
+      const vx = 0; 
       const vz = direction * speed;
 
       scene.add(human.root);
       const agent = { id: i, human: human, vx: vx, vz: vz, speed: speed, walkCycle: Math.random() * Math.PI * 2, lastStepX: x, lastStepZ: z };
       updateHumanRotation(agent);
       
-      // Controla visibilidade inicial baseada no valor padrão (8)
       if (i >= targetAgentCount) {
         human.root.visible = false;
       }
@@ -451,7 +446,7 @@
     function updateAgents() {
       let stepOccurred = false;
       pedestrians.forEach((agent, idx) => {
-        if (idx >= targetAgentCount) return; // Ignora agentes desativados pelo slider
+        if (idx >= targetAgentCount) return;
 
         if (!isPaused) {
           agent.human.root.position.x += agent.vx;
@@ -469,12 +464,13 @@
           agent.human.leftArm.rotation.x = -Math.sin(agent.walkCycle) * 0.5;
           agent.human.rightArm.rotation.x = Math.sin(agent.walkCycle) * 0.5;
 
-          // Comportamento de Calçada: Chegando nas extremidades da calçada, inverte o sentido (vai e volta)
+          // CORREÇÃO APLICADA AQUI: Quando o pedestre atinge o limite da calçada, ele reaparece na outra ponta com uma nova posição X aleatória (variedade de caminhos)
           if (Math.abs(currZ) > HALF_LENGTH - 2) {
-            agent.vz *= -1;
+            agent.vz *= -1; // Inverte direção
+            agent.human.root.position.x = (Math.random() - 0.5) * (FLOOR_WIDTH - 2); // Muda de faixa horizontal aleatoriamente
             updateHumanRotation(agent);
           }
-          // Mantém contido dentro da largura da calçada
+
           if (Math.abs(currX) > HALF_WIDTH - 1) {
             agent.human.root.position.x = Math.sign(currX) * (HALF_WIDTH - 1);
           }
@@ -510,7 +506,6 @@
       }
     }
 
-    // Controle dinâmico da quantidade de pessoas via Slider
     const rangeAgents = document.getElementById('range-agents');
     const labelAgentsCount = document.getElementById('label-agents-count');
 
