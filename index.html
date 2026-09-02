@@ -338,7 +338,6 @@
         id: i, 
         human: human, 
         targetX: x, 
-        currentX: x,
         vx: 0, 
         vz: direction * speed, 
         speed: speed, 
@@ -459,7 +458,7 @@
         if (idx >= targetAgentCount) return;
 
         if (!isPaused) {
-          // Desvio antecipado e suave baseado em raio de visão ampliado
+          // Desvio antecipado e suave entre os bonecos
           let avoidX = 0;
           pedestrians.forEach((other, otherIdx) => {
             if (idx !== otherIdx && otherIdx < targetAgentCount) {
@@ -467,14 +466,12 @@
               const dz = agent.human.root.position.z - other.human.root.position.z;
               const dist = Math.hypot(dx, dz);
               
-              // Raio maior para desviar bem antes e de forma bem suave
               if (dist < 3.2 && dist > 0.001) {
                 avoidX += (dx / dist) * (3.2 - dist) * 0.035;
               }
             }
           });
 
-          // Puxada suave de volta para a linha/direção alvo original
           const returnForce = (agent.targetX - agent.human.root.position.x) * 0.01;
           const organicWobble = Math.sin(agent.walkCycle * 0.4) * 0.003;
 
@@ -483,8 +480,8 @@
           agent.human.root.position.x += agent.vx;
           agent.human.root.position.z += agent.vz;
 
-          const currX = agent.human.root.position.x;
-          const currZ = agent.human.root.position.z;
+          let currX = agent.human.root.position.x;
+          let currZ = agent.human.root.position.z;
 
           updateHumanRotation(agent);
 
@@ -495,11 +492,13 @@
           agent.human.leftArm.rotation.x = -Math.sin(agent.walkCycle) * 0.5;
           agent.human.rightArm.rotation.x = Math.sin(agent.walkCycle) * 0.5;
 
-          // Ao atingir as pontas da calçada, inverte direção com segurança
-          if (Math.abs(currZ) > HALF_LENGTH - 2) {
-            agent.vz *= -1;
+          // Se atingir a extremidade (fim da calçada), reaparece instantaneamente no lado oposto
+          if (currZ > HALF_LENGTH - 1) {
+            agent.human.root.position.z = -HALF_LENGTH + 1;
             agent.targetX = (Math.random() - 0.5) * (FLOOR_WIDTH - 2);
-            updateHumanRotation(agent);
+          } else if (currZ < -HALF_LENGTH + 1) {
+            agent.human.root.position.z = HALF_LENGTH - 1;
+            agent.targetX = (Math.random() - 0.5) * (FLOOR_WIDTH - 2);
           }
 
           if (Math.abs(currX) > HALF_WIDTH - 1) {
