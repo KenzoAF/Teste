@@ -432,7 +432,7 @@
       document.getElementById('val-coverage').innerText = `${coveragePercentage.toFixed(1)}%`;
     }
 
-    // IA Dinâmica: Monitora se atingiu 75% da Área Ativada para indicar o melhor local de placas
+    // IA Dinâmica: Quando atinge 75%, limpa o gradiente e desenha quadrados coloridos nas melhores zonas no mini mapa
     function updateAIdealHeatmap() {
       const canvas = document.getElementById('idealCanvas');
       const ctx = canvas.getContext('2d');
@@ -459,8 +459,8 @@
         return;
       }
 
-      const miniResX = 20;
-      const miniResY = 28;
+      const miniResX = 14;
+      const miniResY = 20;
       const stepX = Math.floor(HEATMAP_RES / miniResX);
       const stepY = Math.floor(HEATMAP_RES / miniResY);
 
@@ -478,16 +478,40 @@
       const cellW = w / miniResX;
       const cellH = h / miniResY;
 
-      for (let py = 0; py < miniResY; py++) {
-        for (let px = 0; px < miniResX; px++) {
-          let sampleX = px * stepX;
-          let sampleY = py * stepY;
-          let val = heatMapData[sampleY * HEATMAP_RES + sampleX] / maxVal;
+      // Se atingiu 75%, desenha apenas blocos/quadrados coloridos discretos nas zonas ativas
+      if (coveragePercentage >= 75.0) {
+        idealContainer.classList.add('target-reached');
+        descText.innerHTML = "🎯 <strong style='color:#4ade80;'>Meta 75%!</strong> Zonas ideais mapeadas por blocos.";
 
-          if (val > 0.02) {
-            let col = getContinuousHeatColor(val);
-            ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
-            ctx.fillRect(px * cellW, py * cellH, cellW + 0.5, cellH + 0.5);
+        for (let py = 0; py < miniResY; py++) {
+          for (let px = 0; px < miniResX; px++) {
+            let sampleX = px * stepX;
+            let sampleY = py * stepY;
+            let val = heatMapData[sampleY * HEATMAP_RES + sampleX] / maxVal;
+
+            if (val > 0.1) {
+              let col = getContinuousHeatColor(val);
+              ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
+              // Desenha o quadrado com pequeno espaçamento para formar a grade de blocos
+              ctx.fillRect(px * cellW + 1, py * cellH + 1, cellW - 2, cellH - 2);
+            }
+          }
+        }
+      } else {
+        idealContainer.classList.remove('target-reached');
+        descText.innerText = `Atingindo 75% (${coveragePercentage.toFixed(1)}%)... Mapeando zonas ideais.`;
+
+        for (let py = 0; py < miniResY; py++) {
+          for (let px = 0; px < miniResX; px++) {
+            let sampleX = px * stepX;
+            let sampleY = py * stepY;
+            let val = heatMapData[sampleY * HEATMAP_RES + sampleX] / maxVal;
+
+            if (val > 0.05) {
+              let col = getContinuousHeatColor(val);
+              ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
+              ctx.fillRect(px * cellW, py * cellH, cellW + 0.5, cellH + 0.5);
+            }
           }
         }
       }
@@ -499,15 +523,6 @@
       }
       for (let j = 0; j < h; j += 15) {
         ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(w, j); ctx.stroke();
-      }
-
-      // Verificação dos 75%
-      if (coveragePercentage >= 75.0) {
-        idealContainer.classList.add('target-reached');
-        descText.innerHTML = "🎯 <strong style='color:#4ade80;'>Meta 75%!</strong> Melhores placas nas zonas centrais brilhantes.";
-      } else {
-        idealContainer.classList.remove('target-reached');
-        descText.innerText = `Atingindo 75% (${coveragePercentage.toFixed(1)}%)... Mapeando zonas ideais.`;
       }
     }
 
