@@ -264,7 +264,7 @@
 
     const humanPalettes = [
       { shirt: 0x2563eb, pants: 0x1e293b, skin: 0xfbcfe8, shoes: 0x0f172a },
-      { shirt: 0xdc2626, pants: 0x334155, skin: 0e0ac69, shoes: 0xffffff },
+      { shirt: 0xdc2626, pants: 0x334155, skin: 0xe0ac69, shoes: 0xffffff },
       { shirt: 0x16a34a, pants: 0x0f172a, skin: 0x8d5524, shoes: 0x1e293b },
       { shirt: 0xea580c, pants: 0x475569, skin: 0xffd1b3, shoes: 0xffffff }
     ];
@@ -440,7 +440,6 @@
       simulationFrames++;
 
       if (simulationFrames < 90) {
-        // Fase inicial de coleta
         ctx.fillStyle = '#0c1018';
         ctx.fillRect(0, 0, w, h);
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
@@ -457,7 +456,6 @@
 
       descText.innerText = "IA otimizou as regiões ideais com base no tráfego real.";
 
-      // Reduzindo a amostragem do mapa principal para o mini canvas (downsampling com IA simulada)
       const miniResX = 20;
       const miniResY = 28;
       const stepX = Math.floor(HEATMAP_RES / miniResX);
@@ -466,7 +464,6 @@
       ctx.fillStyle = '#0c1018';
       ctx.fillRect(0, 0, w, h);
 
-      // Encontrar o valor máximo para normalização
       let maxVal = 0.001;
       for (let y = 0; y < HEATMAP_RES; y += stepY) {
         for (let x = 0; x < HEATMAP_RES; x += stepX) {
@@ -492,7 +489,6 @@
         }
       }
 
-      // Grade sutil por cima
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
       ctx.lineWidth = 1;
       for (let i = 0; i < w; i += 15) {
@@ -709,8 +705,11 @@
       requestAnimationFrame(animate);
       controls.update();
       updateAgents();
+      
+      // O mapa principal agora é atualizado continuamente para garantir que apareça desde o início
+      updateHeatmapTexture();
+
       if (!isPaused) {
-        updateHeatmapTexture();
         updateAIdealHeatmap();
       }
       renderer.render(scene, camera);
