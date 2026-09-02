@@ -458,7 +458,7 @@
         if (idx >= targetAgentCount) return;
 
         if (!isPaused) {
-          // Desvio antecipado e suave entre os bonecos
+          // Desvio suave, gradual e natural entre os pedestres com raio amplo
           let avoidX = 0;
           pedestrians.forEach((other, otherIdx) => {
             if (idx !== otherIdx && otherIdx < targetAgentCount) {
@@ -466,16 +466,18 @@
               const dz = agent.human.root.position.z - other.human.root.position.z;
               const dist = Math.hypot(dx, dz);
               
-              if (dist < 3.2 && dist > 0.001) {
-                avoidX += (dx / dist) * (3.2 - dist) * 0.035;
+              if (dist < 3.5 && dist > 0.001) {
+                avoidX += (dx / dist) * (3.5 - dist) * 0.015;
               }
             }
           });
 
-          const returnForce = (agent.targetX - agent.human.root.position.x) * 0.01;
-          const organicWobble = Math.sin(agent.walkCycle * 0.4) * 0.003;
+          const returnForce = (agent.targetX - agent.human.root.position.x) * 0.006;
+          const organicWobble = Math.sin(agent.walkCycle * 0.3) * 0.002;
 
-          agent.vx = avoidX + returnForce + organicWobble;
+          // Aplicação de inércia para evitar curvas bruscas
+          const targetVx = avoidX + returnForce + organicWobble;
+          agent.vx += (targetVx - agent.vx) * 0.1;
 
           agent.human.root.position.x += agent.vx;
           agent.human.root.position.z += agent.vz;
@@ -492,7 +494,7 @@
           agent.human.leftArm.rotation.x = -Math.sin(agent.walkCycle) * 0.5;
           agent.human.rightArm.rotation.x = Math.sin(agent.walkCycle) * 0.5;
 
-          // Se atingir a extremidade (fim da calçada), reaparece instantaneamente no lado oposto
+          // Teletransporte limpo para o lado oposto ao atingir as extremidades
           if (currZ > HALF_LENGTH - 1) {
             agent.human.root.position.z = -HALF_LENGTH + 1;
             agent.targetX = (Math.random() - 0.5) * (FLOOR_WIDTH - 2);
