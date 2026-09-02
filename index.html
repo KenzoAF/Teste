@@ -432,7 +432,7 @@
       document.getElementById('val-coverage').innerText = `${coveragePercentage.toFixed(1)}%`;
     }
 
-    // IA Dinâmica: Quando atinge 75%, limpa o gradiente e desenha quadrados coloridos nas melhores zonas no mini mapa
+    // IA Dinâmica: Quando atinge 75%, mostra apenas a área/zona ideal focalizada no mini mapa
     function updateAIdealHeatmap() {
       const canvas = document.getElementById('idealCanvas');
       const ctx = canvas.getContext('2d');
@@ -478,25 +478,47 @@
       const cellW = w / miniResX;
       const cellH = h / miniResY;
 
-      // Se atingiu 75%, desenha apenas blocos/quadrados coloridos discretos nas zonas ativas
+      // Se atingiu 75%, apaga o restante e exibe APENAS a melhor zona (hotspot focalizado)
       if (coveragePercentage >= 75.0) {
         idealContainer.classList.add('target-reached');
-        descText.innerHTML = "🎯 <strong style='color:#4ade80;'>Meta 75%!</strong> Zonas ideais mapeadas por blocos.";
+        descText.innerHTML = "🎯 <strong style='color:#4ade80;'>Meta 75%!</strong> Zona ideal ótima destacada.";
 
+        let bestVal = -1;
+        let bestPx = -1;
+        let bestPy = -1;
+
+        // Encontra a coordenada exata com maior valor acumulado (hotspot)
         for (let py = 0; py < miniResY; py++) {
           for (let px = 0; px < miniResX; px++) {
             let sampleX = px * stepX;
             let sampleY = py * stepY;
             let val = heatMapData[sampleY * HEATMAP_RES + sampleX] / maxVal;
-
-            if (val > 0.1) {
-              let col = getContinuousHeatColor(val);
-              ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
-              // Desenha o quadrado com pequeno espaçamento para formar a grade de blocos
-              ctx.fillRect(px * cellW + 1, py * cellH + 1, cellW - 2, cellH - 2);
+            if (val > bestVal) {
+              bestVal = val;
+              bestPx = px;
+              bestPy = py;
             }
           }
         }
+
+        // Desenha apenas uma pequena área/bloco em volta da melhor zona ótima identificada pela IA
+        if (bestPx !== -1 && bestVal > 0.05) {
+          let col = getContinuousHeatColor(bestVal);
+          ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
+          
+          // Área pequena centrada no melhor ponto (3x3 blocos ou cluster focalizado)
+          const radiusFocus = 1;
+          for (let dy = -radiusFocus; dy <= radiusFocus; dy++) {
+            for (let dx = -radiusFocus; dx <= radiusFocus; dx++) {
+              let targetX = bestPx + dx;
+              let targetY = bestPy + dy;
+              if (targetX >= 0 && targetX < miniResX && targetY >= 0 && targetY < miniResY) {
+                ctx.fillRect(targetX * cellW + 1, targetY * cellH + 1, cellW - 2, cellH - 2);
+              }
+            }
+          }
+        }
+
       } else {
         idealContainer.classList.remove('target-reached');
         descText.innerText = `Atingindo 75% (${coveragePercentage.toFixed(1)}%)... Mapeando zonas ideais.`;
