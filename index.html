@@ -71,7 +71,7 @@
     .calc-btn { flex: 1; background: #1e293b; color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.1); padding: 5px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .calc-btn:hover { background: #334155; color: #fff; }
 
-    /* Mini Heatmap Dinâmico (Inferior Direito) */
+    /* Mini Mapa de Calor Dinâmico (Inferior Direito) */
     .ideal-map-container { margin-top: 12px; background: rgba(0, 0, 0, 0.35); padding: 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; align-items: center; }
     .ideal-map-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
     .ideal-map-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
@@ -88,7 +88,6 @@
 
   <div id="canvas-container"></div>
 
-  <!-- Painel Esquerdo -->
   <div class="hud-panel">
     <div class="badge"><span class="badge-dot"></span> FECART • PIEZOELÉTRICA</div>
     <h1>Simulação de Calçada</h1>
@@ -103,7 +102,6 @@
       <div class="legend-item"><div class="legend-color-box"><div class="color-swatch swatch-purple"></div><span class="legend-traffic">Tráfego Intenso</span></div><span class="legend-energy">Roxo</span></div>
     </div>
 
-    <!-- Controle de Quantidade de Pessoas -->
     <div class="slider-container">
       <div class="slider-header">
         <span>Quantidade de Pedestres</span>
@@ -126,7 +124,6 @@
     </div>
   </div>
 
-  <!-- Painel Direito - Gráfico + Calculadora f(x) + Mini Heatmap Dinâmico -->
   <div class="hud-panel-right">
     <div class="section-title">Função f(x) - Crescimento Contínuo</div>
     <canvas id="fxChart" width="300" height="150"></canvas>
@@ -149,13 +146,12 @@
       </div>
     </div>
 
-    <!-- Mini Mapa de Calor Dinâmico (IA / Aprendizado de Fluxo) -->
     <div class="ideal-map-container" id="ideal-container">
       <div class="ideal-map-header">
         <span class="ideal-map-title">IA: Região Ideal de Pisos</span>
       </div>
       <canvas id="idealCanvas" width="100" height="140"></canvas>
-      <div class="ideal-desc" id="ideal-desc-text">Analisando fluxo e aprendendo melhores zonas...</div>
+      <div class="ideal-desc" id="ideal-desc-text">Inspirando-se no mapa para escolher a melhor área...</div>
     </div>
   </div>
 
@@ -182,6 +178,10 @@
     let targetAgentCount = 8;
     let simulationFrames = 0;
     let coveragePercentage = 0;
+    let aiLocked = false;
+    let lockedBestPx = -1;
+    let lockedBestPy = -1;
+    let lockedBestVal = 0;
 
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
@@ -432,7 +432,7 @@
       document.getElementById('val-coverage').innerText = `${coveragePercentage.toFixed(1)}%`;
     }
 
-    // IA Dinâmica: Quando atinge 75%, mostra apenas a área/zona ideal focalizada no mini mapa
+    // IA Dinâmica: Quando atinge 90%, trava a melhor área inspirada no mapa de calor e mantém até o final
     function updateAIdealHeatmap() {
       const canvas = document.getElementById('idealCanvas');
       const ctx = canvas.getContext('2d');
@@ -454,7 +454,7 @@
         for (let j = 0; j < h; j += 15) {
           ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(w, j); ctx.stroke();
         }
-        descText.innerText = `IA coletando dados (${Math.floor((simulationFrames/90)*100)}%)...`;
+        descText.innerText = `Inspirando-se no mapa (${Math.floor((simulationFrames/90)*100)}%)...`;
         idealContainer.classList.remove('target-reached');
         return;
       }
@@ -463,6 +463,41 @@
       const miniResY = 20;
       const stepX = Math.floor(HEATMAP_RES / miniResX);
       const stepY = Math.floor(HEATMAP_RES / miniResY);
+      const cellW = w / miniResX;
+      const cellH = h / miniResY;
+
+      // Se já travou (atingiu 90%), mantém estático o resultado escolhido pela IA com base no mapa
+      if (aiLocked) {
+        idealContainer.classList.add('target-reached');
+        descText.innerHTML = "🎯 <strong style='color:#4ade80;'>Melhor área!</strong> IA escolheu baseada no mapa.";
+
+        ctx.fillStyle = '#0c1018';
+        ctx.fillRect(0, 0, w, h);
+
+        let col = getContinuousHeatColor(lockedBestVal);
+        ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
+
+        const radiusFocus = 1;
+        for (let dy = -radiusFocus; dy <= radiusFocus; dy++) {
+          for (let dx = -radiusFocus; dx <= radiusFocus; dx++) {
+            let targetX = lockedBestPx + dx;
+            let targetY = lockedBestPy + dy;
+            if (targetX >= 0 && targetX < miniResX && targetY >= 0 && targetY < miniResY) {
+              ctx.fillRect(targetX * cellW + 1, targetY * cellH + 1, cellW - 2, cellH - 2);
+            }
+          }
+        }
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < w; i += 15) {
+          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
+        }
+        for (let j = 0; j < h; j += 15) {
+          ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(w, j); ctx.stroke();
+        }
+        return;
+      }
 
       ctx.fillStyle = '#0c1018';
       ctx.fillRect(0, 0, w, h);
@@ -475,19 +510,12 @@
         }
       }
 
-      const cellW = w / miniResX;
-      const cellH = h / miniResY;
-
-      // Se atingiu 75%, apaga o restante e exibe APENAS a melhor zona (hotspot focalizado)
-      if (coveragePercentage >= 75.0) {
-        idealContainer.classList.add('target-reached');
-        descText.innerHTML = "🎯 <strong style='color:#4ade80;'>Meta 75%!</strong> Zona ideal ótima destacada.";
-
+      // Quando atingir 90%, a IA se inspira no mapa de calor e trava a melhor área definitivamente
+      if (coveragePercentage >= 90.0) {
         let bestVal = -1;
         let bestPx = -1;
         let bestPy = -1;
 
-        // Encontra a coordenada exata com maior valor acumulado (hotspot)
         for (let py = 0; py < miniResY; py++) {
           for (let px = 0; px < miniResX; px++) {
             let sampleX = px * stepX;
@@ -501,39 +529,27 @@
           }
         }
 
-        // Desenha apenas uma pequena área/bloco em volta da melhor zona ótima identificada pela IA
-        if (bestPx !== -1 && bestVal > 0.05) {
-          let col = getContinuousHeatColor(bestVal);
-          ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
-          
-          // Área pequena centrada no melhor ponto (3x3 blocos ou cluster focalizado)
-          const radiusFocus = 1;
-          for (let dy = -radiusFocus; dy <= radiusFocus; dy++) {
-            for (let dx = -radiusFocus; dx <= radiusFocus; dx++) {
-              let targetX = bestPx + dx;
-              let targetY = bestPy + dy;
-              if (targetX >= 0 && targetX < miniResX && targetY >= 0 && targetY < miniResY) {
-                ctx.fillRect(targetX * cellW + 1, targetY * cellH + 1, cellW - 2, cellH - 2);
-              }
-            }
-          }
+        if (bestPx !== -1) {
+          lockedBestPx = bestPx;
+          lockedBestPy = bestPy;
+          lockedBestVal = bestVal;
+          aiLocked = true;
+          return;
         }
+      }
 
-      } else {
-        idealContainer.classList.remove('target-reached');
-        descText.innerText = `Atingindo 75% (${coveragePercentage.toFixed(1)}%)... Mapeando zonas ideais.`;
+      // Enquanto não atinge 90%, mostra o progresso normal do aprendizado inspirado no mapa
+      descText.innerText = `Analisando mapa (${coveragePercentage.toFixed(1)}%/90%)...`;
+      for (let py = 0; py < miniResY; py++) {
+        for (let px = 0; px < miniResX; px++) {
+          let sampleX = px * stepX;
+          let sampleY = py * stepY;
+          let val = heatMapData[sampleY * HEATMAP_RES + sampleX] / maxVal;
 
-        for (let py = 0; py < miniResY; py++) {
-          for (let px = 0; px < miniResX; px++) {
-            let sampleX = px * stepX;
-            let sampleY = py * stepY;
-            let val = heatMapData[sampleY * HEATMAP_RES + sampleX] / maxVal;
-
-            if (val > 0.05) {
-              let col = getContinuousHeatColor(val);
-              ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
-              ctx.fillRect(px * cellW, py * cellH, cellW + 0.5, cellH + 0.5);
-            }
+          if (val > 0.05) {
+            let col = getContinuousHeatColor(val);
+            ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
+            ctx.fillRect(px * cellW, py * cellH, cellW + 0.5, cellH + 0.5);
           }
         }
       }
@@ -775,12 +791,15 @@
       initFloorCanvas();
       floorTexture.needsUpdate = true;
       totalJoules = totalSteps = instantaneousWatts = simulationFrames = coveragePercentage = 0;
+      aiLocked = false;
+      lockedBestPx = lockedBestPy = -1;
+      lockedBestVal = 0;
       document.getElementById('val-joules').innerText = '0.0 J';
       document.getElementById('val-watts').innerText = '0.0 W';
       document.getElementById('val-steps').innerText = '0';
       document.getElementById('val-coverage').innerText = '0.0%';
       document.getElementById('ideal-container').classList.remove('target-reached');
-      document.getElementById('ideal-desc-text').innerText = 'Analisando fluxo e aprendendo melhores zonas...';
+      document.getElementById('ideal-desc-text').innerText = 'Inspirando-se no mapa para escolher a melhor área...';
       
       timeStep = 10;
       fxChart.data.labels = Array.from({length: 10}, (_, i) => i);
