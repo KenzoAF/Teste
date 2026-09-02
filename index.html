@@ -21,8 +21,10 @@
     /* Painel Esquerdo */
     .hud-panel { position: absolute; top: 20px; left: 20px; z-index: 10; width: 360px; max-width: calc(100vw - 40px); background: rgba(13, 17, 23, 0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 16px; padding: 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
     
-    /* Painel Direito (Gráfico + Calculadora f(x)) */
-    .hud-panel-right { position: absolute; top: 20px; right: 20px; z-index: 10; width: 340px; background: rgba(13, 17, 23, 0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 16px; padding: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+    /* Painel Direito (Gráfico + Calculadora f(x) + Mini Heatmap Ideal) */
+    .hud-panel-right { position: absolute; top: 20px; right: 20px; z-index: 10; width: 340px; background: rgba(13, 17, 23, 0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 16px; padding: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1); max-height: calc(100vh - 40px); overflow-y: auto; }
+    .hud-panel-right::-webkit-scrollbar { width: 4px; }
+    .hud-panel-right::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
 
     .badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; font-family: 'Orbitron', sans-serif; margin-bottom: 10px; }
     .badge-dot { width: 6px; height: 6px; background-color: #3b82f6; border-radius: 50%; box-shadow: 0 0 8px #3b82f6; animation: pulse 1.5s infinite; }
@@ -46,7 +48,6 @@
     .metric-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
     .metric-value { font-family: 'Orbitron', monospace; font-size: 16px; font-weight: 700; color: #38bdf8; }
     
-    /* Slider de Quantidade de Pessoas */
     .slider-container { margin-bottom: 14px; background: rgba(0, 0, 0, 0.3); padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05); }
     .slider-header { display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-bottom: 6px; }
     .slider-header span:last-child { font-family: 'Orbitron', monospace; color: #38bdf8; font-weight: 700; }
@@ -69,6 +70,13 @@
     .calc-btn-row { display: flex; gap: 6px; }
     .calc-btn { flex: 1; background: #1e293b; color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.1); padding: 5px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .calc-btn:hover { background: #334155; color: #fff; }
+
+    /* Mini Heatmap Ideal (Inferior Direito) */
+    .ideal-map-container { margin-top: 12px; background: rgba(0, 0, 0, 0.35); padding: 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; align-items: center; }
+    .ideal-map-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .ideal-map-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+    #idealCanvas { width: 100px; height: 140px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.15); display: block; background: #0c1018; }
+    .ideal-desc { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 6px; line-height: 1.3; }
 
     .hint-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(13, 17, 23, 0.7); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 30px; padding: 8px 18px; font-size: 11px; color: #94a3b8; display: flex; gap: 16px; pointer-events: none; }
     .hint-bar span { display: inline-flex; align-items: center; gap: 5px; }
@@ -117,7 +125,7 @@
     </div>
   </div>
 
-  <!-- Painel Direito - Gráfico + Calculadora f(x) em Segundos -->
+  <!-- Painel Direito - Gráfico + Calculadora f(x) + Mini Heatmap Ideal -->
   <div class="hud-panel-right">
     <div class="section-title">Função f(x) - Crescimento Contínuo</div>
     <canvas id="fxChart" width="300" height="150"></canvas>
@@ -135,9 +143,18 @@
         <span class="calc-result" id="res-time">t = -- s</span>
       </div>
       <div class="calc-btn-row">
-        <button class="calc-btn" id="btn-reset-chart">🔄 Zerar Gráfico</button>
+        <calc-btn class="calc-btn" id="btn-reset-chart">🔄 Zerar Gráfico</button>
         <button class="calc-btn" id="btn-pause-chart">⏸️ Pausar Gráfico</button>
       </div>
+    </div>
+
+    <!-- Mini Mapa de Calor Ideal (Canto Inferior Direito) -->
+    <div class="ideal-map-container">
+      <div class="ideal-map-header">
+        <span class="ideal-map-title">Região Ideal de Pisos</span>
+      </div>
+      <canvas id="idealCanvas" width="100" height="140"></canvas>
+      <div class="ideal-desc">Áreas centrais concentram maior eficiência de impacto piezoelétrico.</div>
     </div>
   </div>
 
@@ -411,7 +428,39 @@
       document.getElementById('val-coverage').innerText = `${((activePixels / heatMapData.length) * 100).toFixed(1)}%`;
     }
 
-    // A função f(x) agora leva em conta a quantidade de agentes ativos (multiplicador de tráfego)
+    // Renderizar o Mini Heatmap Ideal no canvas dedicado
+    function renderIdealHeatmap() {
+      const canvas = document.getElementById('idealCanvas');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.fillStyle = '#0c1018';
+      ctx.fillRect(0, 0, w, h);
+
+      // Desenhar padrão de gradiente simulando maior densidade no centro da calçada
+      const grad = ctx.createRadialGradient(w/2, h/2, 5, w/2, h/2, w*0.6);
+      grad.addColorStop(0.0, 'rgba(128, 0, 128, 0.9)'); // Roxo (Intenso)
+      grad.addColorStop(0.3, 'rgba(255, 30, 30, 0.85)'); // Vermelho (Alto)
+      grad.addColorStop(0.6, 'rgba(255, 234, 0, 0.7)'); // Amarelo (Médio)
+      grad.addColorStop(0.9, 'rgba(0, 255, 102, 0.4)'); // Verde (Baixo)
+      grad.addColorStop(1.0, 'rgba(12, 16, 24, 0.0)');
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Linhas de grade simulando o piso quadriculado
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < w; i += 15) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
+      }
+      for (let j = 0; j < h; j += 15) {
+        ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(w, j); ctx.stroke();
+      }
+    }
+    renderIdealHeatmap();
+
     function calcFX(x) {
       const scaleMultiplier = targetAgentCount / 8;
       return ((x * 4.8 * 0.5) + Math.pow(1.08, x)) * scaleMultiplier;
@@ -469,7 +518,6 @@
               const dz = agent.human.root.position.z - other.human.root.position.z;
               const dist = Math.hypot(dx, dz);
               
-              // Raio de desvio aumentado e força de repulsão anti-colisão reforçada para evitar sobreposição
               if (dist < 1.8 && dist > 0.0001) {
                 const repulseForce = (1.8 - dist) / dist;
                 avoidX += dx * repulseForce * 0.08;
@@ -486,7 +534,6 @@
           const targetVx = avoidX + returnForce + organicWobble;
           agent.vx += (targetVx - agent.vx) * 0.1;
           
-          // Adiciona componente de repulsão em Z para evitar travamentos frontais
           let currentVz = agent.vz + avoidZ;
 
           agent.human.root.position.x += agent.vx;
@@ -562,7 +609,6 @@
         }
       });
 
-      // Atualiza o gráfico imediatamente ao mudar a quantidade de pedestres no slider
       fxChart.data.labels = Array.from({length: fxChart.data.labels.length}, (_, i) => i + (timeStep - fxChart.data.labels.length + 1));
       fxChart.data.datasets[0].data = fxChart.data.labels.map(t => calcFX(t));
       fxChart.update();
