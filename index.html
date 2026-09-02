@@ -21,7 +21,7 @@
     /* Painel Esquerdo */
     .hud-panel { position: absolute; top: 20px; left: 20px; z-index: 10; width: 360px; max-width: calc(100vw - 40px); background: rgba(13, 17, 23, 0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 16px; padding: 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
     
-    /* Painel Direito (Gráfico + Calculadora f(x) + Mini Heatmap Ideal) */
+    /* Painel Direito (Gráfico + Calculadora f(x) + Mini Heatmap Dinâmico) */
     .hud-panel-right { position: absolute; top: 20px; right: 20px; z-index: 10; width: 340px; background: rgba(13, 17, 23, 0.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 16px; padding: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1); max-height: calc(100vh - 40px); overflow-y: auto; }
     .hud-panel-right::-webkit-scrollbar { width: 4px; }
     .hud-panel-right::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
@@ -71,7 +71,7 @@
     .calc-btn { flex: 1; background: #1e293b; color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.1); padding: 5px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; text-align: center; }
     .calc-btn:hover { background: #334155; color: #fff; }
 
-    /* Mini Heatmap Ideal (Inferior Direito) */
+    /* Mini Heatmap Dinâmico (Inferior Direito) */
     .ideal-map-container { margin-top: 12px; background: rgba(0, 0, 0, 0.35); padding: 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; align-items: center; }
     .ideal-map-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
     .ideal-map-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
@@ -125,7 +125,7 @@
     </div>
   </div>
 
-  <!-- Painel Direito - Gráfico + Calculadora f(x) + Mini Heatmap Ideal -->
+  <!-- Painel Direito - Gráfico + Calculadora f(x) + Mini Heatmap Dinâmico -->
   <div class="hud-panel-right">
     <div class="section-title">Função f(x) - Crescimento Contínuo</div>
     <canvas id="fxChart" width="300" height="150"></canvas>
@@ -143,18 +143,18 @@
         <span class="calc-result" id="res-time">t = -- s</span>
       </div>
       <div class="calc-btn-row">
-        <calc-btn class="calc-btn" id="btn-reset-chart">🔄 Zerar Gráfico</button>
+        <button class="calc-btn" id="btn-reset-chart">🔄 Zerar Gráfico</button>
         <button class="calc-btn" id="btn-pause-chart">⏸️ Pausar Gráfico</button>
       </div>
     </div>
 
-    <!-- Mini Mapa de Calor Ideal (Canto Inferior Direito) -->
+    <!-- Mini Mapa de Calor Dinâmico (IA / Aprendizado de Fluxo) -->
     <div class="ideal-map-container">
       <div class="ideal-map-header">
-        <span class="ideal-map-title">Região Ideal de Pisos</span>
+        <span class="ideal-map-title">IA: Região Ideal de Pisos</span>
       </div>
       <canvas id="idealCanvas" width="100" height="140"></canvas>
-      <div class="ideal-desc">Áreas centrais concentram maior eficiência de impacto piezoelétrico.</div>
+      <div class="ideal-desc" id="ideal-desc-text">Analisando fluxo e aprendendo melhores zonas...</div>
     </div>
   </div>
 
@@ -179,6 +179,7 @@
     let totalSteps = 0;
     let instantaneousWatts = 0;
     let targetAgentCount = 8;
+    let simulationFrames = 0;
 
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
@@ -263,7 +264,7 @@
 
     const humanPalettes = [
       { shirt: 0x2563eb, pants: 0x1e293b, skin: 0xfbcfe8, shoes: 0x0f172a },
-      { shirt: 0xdc2626, pants: 0x334155, skin: 0xe0ac69, shoes: 0xffffff },
+      { shirt: 0xdc2626, pants: 0x334155, skin: 0e0ac69, shoes: 0xffffff },
       { shirt: 0x16a34a, pants: 0x0f172a, skin: 0x8d5524, shoes: 0x1e293b },
       { shirt: 0xea580c, pants: 0x475569, skin: 0xffd1b3, shoes: 0xffffff }
     ];
@@ -428,29 +429,71 @@
       document.getElementById('val-coverage').innerText = `${((activePixels / heatMapData.length) * 100).toFixed(1)}%`;
     }
 
-    // Renderizar o Mini Heatmap Ideal no canvas dedicado
-    function renderIdealHeatmap() {
+    // IA Dinâmica: Amostra o mapa de calor principal e desenha o ideal adaptado no mini canvas
+    function updateAIdealHeatmap() {
       const canvas = document.getElementById('idealCanvas');
       const ctx = canvas.getContext('2d');
       const w = canvas.width;
       const h = canvas.height;
+      const descText = document.getElementById('ideal-desc-text');
+
+      simulationFrames++;
+
+      if (simulationFrames < 90) {
+        // Fase inicial de coleta
+        ctx.fillStyle = '#0c1018';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < w; i += 15) {
+          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
+        }
+        for (let j = 0; j < h; j += 15) {
+          ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(w, j); ctx.stroke();
+        }
+        descText.innerText = `IA coletando dados (${Math.floor((simulationFrames/90)*100)}%)...`;
+        return;
+      }
+
+      descText.innerText = "IA otimizou as regiões ideais com base no tráfego real.";
+
+      // Reduzindo a amostragem do mapa principal para o mini canvas (downsampling com IA simulada)
+      const miniResX = 20;
+      const miniResY = 28;
+      const stepX = Math.floor(HEATMAP_RES / miniResX);
+      const stepY = Math.floor(HEATMAP_RES / miniResY);
 
       ctx.fillStyle = '#0c1018';
       ctx.fillRect(0, 0, w, h);
 
-      // Desenhar padrão de gradiente simulando maior densidade no centro da calçada
-      const grad = ctx.createRadialGradient(w/2, h/2, 5, w/2, h/2, w*0.6);
-      grad.addColorStop(0.0, 'rgba(128, 0, 128, 0.9)'); // Roxo (Intenso)
-      grad.addColorStop(0.3, 'rgba(255, 30, 30, 0.85)'); // Vermelho (Alto)
-      grad.addColorStop(0.6, 'rgba(255, 234, 0, 0.7)'); // Amarelo (Médio)
-      grad.addColorStop(0.9, 'rgba(0, 255, 102, 0.4)'); // Verde (Baixo)
-      grad.addColorStop(1.0, 'rgba(12, 16, 24, 0.0)');
+      // Encontrar o valor máximo para normalização
+      let maxVal = 0.001;
+      for (let y = 0; y < HEATMAP_RES; y += stepY) {
+        for (let x = 0; x < HEATMAP_RES; x += stepX) {
+          let val = heatMapData[y * HEATMAP_RES + x];
+          if (val > maxVal) maxVal = val;
+        }
+      }
 
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
+      const cellW = w / miniResX;
+      const cellH = h / miniResY;
 
-      // Linhas de grade simulando o piso quadriculado
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      for (let py = 0; py < miniResY; py++) {
+        for (let px = 0; px < miniResX; px++) {
+          let sampleX = px * stepX;
+          let sampleY = py * stepY;
+          let val = heatMapData[sampleY * HEATMAP_RES + sampleX] / maxVal;
+
+          if (val > 0.02) {
+            let col = getContinuousHeatColor(val);
+            ctx.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
+            ctx.fillRect(px * cellW, py * cellH, cellW + 0.5, cellH + 0.5);
+          }
+        }
+      }
+
+      // Grade sutil por cima
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
       ctx.lineWidth = 1;
       for (let i = 0; i < w; i += 15) {
         ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
@@ -459,7 +502,6 @@
         ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(w, j); ctx.stroke();
       }
     }
-    renderIdealHeatmap();
 
     function calcFX(x) {
       const scaleMultiplier = targetAgentCount / 8;
@@ -667,7 +709,10 @@
       requestAnimationFrame(animate);
       controls.update();
       updateAgents();
-      if (!isPaused) updateHeatmapTexture();
+      if (!isPaused) {
+        updateHeatmapTexture();
+        updateAIdealHeatmap();
+      }
       renderer.render(scene, camera);
     }
     animate();
@@ -682,7 +727,7 @@
       heatMapData.fill(0);
       initFloorCanvas();
       floorTexture.needsUpdate = true;
-      totalJoules = totalSteps = instantaneousWatts = 0;
+      totalJoules = totalSteps = instantaneousWatts = simulationFrames = 0;
       document.getElementById('val-joules').innerText = '0.0 J';
       document.getElementById('val-watts').innerText = '0.0 W';
       document.getElementById('val-steps').innerText = '0';
