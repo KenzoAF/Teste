@@ -88,6 +88,7 @@
 
   <div id="canvas-container"></div>
 
+  <!-- Painel Esquerdo -->
   <div class="hud-panel">
     <div class="badge"><span class="badge-dot"></span> FECART • PIEZOELÉTRICA</div>
     <h1>Simulação de Calçada</h1>
@@ -102,6 +103,7 @@
       <div class="legend-item"><div class="legend-color-box"><div class="color-swatch swatch-purple"></div><span class="legend-traffic">Tráfego Intenso</span></div><span class="legend-energy">Roxo</span></div>
     </div>
 
+    <!-- Controle de Quantidade de Pessoas -->
     <div class="slider-container">
       <div class="slider-header">
         <span>Quantidade de Pedestres</span>
@@ -124,6 +126,7 @@
     </div>
   </div>
 
+  <!-- Painel Direito - Gráfico + Calculadora f(x) + Mini Heatmap Dinâmico -->
   <div class="hud-panel-right">
     <div class="section-title">Função f(x) - Crescimento Contínuo</div>
     <canvas id="fxChart" width="300" height="150"></canvas>
@@ -146,6 +149,7 @@
       </div>
     </div>
 
+    <!-- Mini Mapa de Calor Dinâmico (IA / Aprendizado de Fluxo) -->
     <div class="ideal-map-container" id="ideal-container">
       <div class="ideal-map-header">
         <span class="ideal-map-title">IA: Região Ideal de Pisos</span>
@@ -419,8 +423,10 @@
 
       for (let i = 0; i < heatMapData.length; i++) {
         const val = heatMapData[i];
-        if (val > 0.0001) { 
+        if (val > 0.05) { // Conta apenas áreas com tráfego relevante para evitar estouro de memória
           activePixels++;
+        }
+        if (val > 0.0001) { 
           const col = getContinuousHeatColor(val);
           const pIdx = i * 4;
           data[pIdx] = col[0]; data[pIdx + 1] = col[1]; data[pIdx + 2] = col[2];
@@ -428,7 +434,9 @@
       }
       outputCtx.putImageData(bgImgData, 0, 0);
       floorTexture.needsUpdate = true;
-      coveragePercentage = (activePixels / heatMapData.length) * 100;
+      
+      // Trava estritamente a porcentagem em no máximo 100% para evitar travamentos
+      coveragePercentage = Math.min(100.0, (activePixels / heatMapData.length) * 100);
       document.getElementById('val-coverage').innerText = `${coveragePercentage.toFixed(1)}%`;
     }
 
