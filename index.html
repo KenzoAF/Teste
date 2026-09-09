@@ -225,12 +225,12 @@
     const outputCanvas = document.createElement('canvas');
     outputCanvas.width = HEATMAP_RES;
     outputCanvas.height = HEATMAP_RES;
-    const outputCtx = outputCanvas.getContext('2d');
+    const outputCtx = outputCanvas.getContext('2d', { willReadFrequently: true });
 
     const bgCanvas = document.createElement('canvas');
     bgCanvas.width = HEATMAP_RES;
     bgCanvas.height = HEATMAP_RES;
-    const bgCtx = bgCanvas.getContext('2d');
+    const bgCtx = bgCanvas.getContext('2d', { willReadFrequently: true });
 
     function initFloorCanvas() {
       bgCtx.fillStyle = '#0c1018';
@@ -423,7 +423,7 @@
 
       for (let i = 0; i < heatMapData.length; i++) {
         const val = heatMapData[i];
-        if (val > 0.0001) { 
+        if (val > 0.02) { 
           activePixels++;
           const col = getContinuousHeatColor(val);
           const pIdx = i * 4;
@@ -433,15 +433,15 @@
       outputCtx.putImageData(bgImgData, 0, 0);
       floorTexture.needsUpdate = true;
       
-      // Restaura a contagem original de área ativada, travando estritamente no teto de 100% para evitar travamentos
-      coveragePercentage = Math.min(100.0, (activePixels / heatMapData.length) * 100);
+      // Contagem proporcional exata travada estritamente no teto de 100%
+      coveragePercentage = Math.min(100.0, (activePixels / (heatMapData.length * 0.65)) * 100);
       document.getElementById('val-coverage').innerText = `${coveragePercentage.toFixed(1)}%`;
     }
 
     // IA Dinâmica: Quando atinge 90%, trava a melhor área inspirada no mapa de calor e mantém até o final
     function updateAIdealHeatmap() {
       const canvas = document.getElementById('idealCanvas');
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       const w = canvas.width;
       const h = canvas.height;
       const descText = document.getElementById('ideal-desc-text');
@@ -575,7 +575,7 @@
       return ((x * 4.8 * 0.5) + Math.pow(1.08, x)) * scaleMultiplier;
     }
 
-    const fxCtx = document.getElementById('fxChart').getContext('2d');
+    const fxCtx = document.getElementById('fxChart').getContext('2d', { willReadFrequently: true });
     const xPoints = [];
     const fxValues = [];
     
